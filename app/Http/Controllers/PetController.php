@@ -36,7 +36,6 @@ class PetController extends Controller
         ]);
     }
 
-
     public function search(SearchRequest $request): View
     {
         $petId = $request->validated('petId');
