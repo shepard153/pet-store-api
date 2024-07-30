@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\PetRequest;
+use App\Http\Requests\SearchRequest;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class PetController extends Controller
@@ -17,19 +17,29 @@ class PetController extends Controller
         $this->baseUrl = config('api.url') . 'pet';
     }
 
+    /**
+     * Display a listing of the resource. For demo purposes, we are using the
+     * findByStatus endpoint to get all available pets.
+     */
     public function __invoke(): View
     {
         $response = Http::get("$this->baseUrl/findByStatus?status=available");
 
+        $pets = null;
+
+        if ($response->status() === 200) {
+            $pets = $response->json();
+        }
+
         return view('home', [
-            'pets' => $response->json(),
+            'pets' => $pets
         ]);
     }
 
 
-    public function search(Request $request): View
+    public function search(SearchRequest $request): View
     {
-        $petId = $request->query('petId');
+        $petId = $request->validated('petId');
 
         $response = Http::get("$this->baseUrl/$petId");
 
@@ -44,10 +54,12 @@ class PetController extends Controller
 
     public function show(int $id): View|RedirectResponse
     {
-        $response = Http::get("$this->baseUrl/{$id}");
+        $response = Http::get("$this->baseUrl/$id");
 
         if ($response->status() === 404) {
-            return redirect()->route('pets');
+            return redirect()
+                ->route('pets')
+                ->with('message', __('Pet not found!'));
         }
 
         return view('show', [
@@ -78,12 +90,18 @@ class PetController extends Controller
 
         $response = Http::put($this->baseUrl, $data);
 
-        if ($response->status() === 405) {
-            $success = false;
-            $message = __('Validation error!');
-        } else {
-            $success = true;
-            $message = __('Pet updated!');
+        switch ($response->status()) {
+            case 404:
+                $success = false;
+                $message = __('Pet not found!');
+                break;
+            case 405:
+                $success = false;
+                $message = __('Validation error!');
+                break;
+            default:
+                $success = true;
+                $message = __('Pet updated!');
         }
 
         return redirect()
@@ -94,7 +112,7 @@ class PetController extends Controller
 
     public function destroy(int $id): RedirectResponse
     {
-        $response = Http::delete("$this->baseUrl/{$id}");
+        $response = Http::delete("$this->baseUrl/$id");
 
         if ($response->status() === 404) {
             $message = __('Pet not found!');

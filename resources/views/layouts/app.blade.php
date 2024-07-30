@@ -13,7 +13,22 @@
   <!-- Styles -->
   @vite('resources/css/app.css')
 </head>
-<body class="font-sans antialiased">
+<body class="container mx-auto font-sans antialiased">
+@if ($errors->any())
+  <div class="p-4 text-white bg-red-400 border-red-500">
+    <ul>
+      @foreach($errors->all() as $error)
+        <li>{{ $error }}</li>
+      @endforeach
+    </ul>
+  </div>
+@endif
+
+@if (session('message'))
+  <div class="p-4 text-white bg-sky-400 border-sky-500">
+    {{ session('message') }}
+  </div>
+@endif
 
 {{ $slot }}
 
