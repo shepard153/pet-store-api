@@ -4,17 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\PetRequest;
 use App\Http\Requests\SearchRequest;
+use App\Services\Interfaces\PetsServiceInterface;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Http;
 
 class PetController extends Controller
 {
-    private string $baseUrl;
-
-    public function __construct()
+    public function __construct(private readonly PetsServiceInterface $petsService)
     {
-        $this->baseUrl = config('api.url') . 'pet';
+        //
     }
 
     /**
@@ -23,37 +21,21 @@ class PetController extends Controller
      */
     public function __invoke(): View
     {
-        $response = Http::get("$this->baseUrl/findByStatus?status=available");
-
-        $pets = null;
-
-        if ($response->status() === 200) {
-            $pets = $response->json();
-        }
-
         return view('home', [
-            'pets' => $pets
+            'pets' => $this->petsService->getPets(),
         ]);
     }
 
     public function search(SearchRequest $request): View
     {
-        $petId = $request->validated('petId');
-
-        $response = Http::get("$this->baseUrl/$petId");
-
-        if ($response->status() === 200) {
-            $pets = $response->json();
-        }
-
         return view('home', [
-            'pets' => $pets ?? [],
+            'pets' => $this->petsService->findPet($request->validated('petId')),
         ]);
     }
 
     public function show(int $id): View|RedirectResponse
     {
-        $response = Http::get("$this->baseUrl/$id");
+        $response = $this->petsService->getPetById($id);
 
         if ($response->status() === 404) {
             return redirect()
@@ -68,7 +50,7 @@ class PetController extends Controller
 
     public function store(PetRequest $request): RedirectResponse
     {
-        $response = Http::post($this->baseUrl, $request->validated());
+        $response = $this->petsService->createPet($request->validated());
 
         if ($response->status() === 405) {
             return back()
@@ -87,39 +69,18 @@ class PetController extends Controller
         $data = $request->validated();
         $data['id'] = $id;
 
-        $response = Http::put($this->baseUrl, $data);
-
-        switch ($response->status()) {
-            case 404:
-                $success = false;
-                $message = __('Pet not found!');
-                break;
-            case 405:
-                $success = false;
-                $message = __('Validation error!');
-                break;
-            default:
-                $success = true;
-                $message = __('Pet updated!');
-        }
+        $response = $this->petsService->updatePet($data);
 
         return redirect()
             ->route('pets.show', $id)
-            ->with('message', $message)
-            ->with('success', $success);
+            ->with('message', $response['message'])
+            ->with('success', $response['success']);
     }
 
     public function destroy(int $id): RedirectResponse
     {
-        $response = Http::delete("$this->baseUrl/$id");
-
-        if ($response->status() === 404) {
-            $message = __('Pet not found!');
-        } else {
-            $message = __('Pet deleted!');
-        }
+        $message = $this->petsService->deletePet($id);
 
         return redirect()->route('pets')->with('message', $message);
     }
 }
-
